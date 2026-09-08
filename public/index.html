@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Test Deployment for InfraDesk</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #111827;
+        color: #f9fafb;
+      }
+      main {
+        width: min(36rem, calc(100% - 2rem));
+        padding: 2rem;
+        border: 1px solid #374151;
+        border-radius: 1rem;
+        background: #1f2937;
+      }
+      h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.5rem;
+      }
+      p {
+        margin: 0.35rem 0;
+        color: #d1d5db;
+      }
+      #version {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #6ee7b7;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Test Deployment for InfraDesk</h1>
+      <p>Chương trình mẫu để kiểm tra pipeline build → test → deploy.</p>
+      <p id="version">Đang tải phiên bản…</p>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
