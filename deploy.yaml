@@ -9,7 +9,7 @@ variables:
   REGISTRY: gmo021.cansportsvg.com:9443
   REGISTRY_USER: admin
   IMAGE_NAME: infradesk/test-deployment
-  IMAGE_TAG: v1.0.0
+  IMAGE_TAG: v1.1.0
   DEPLOY_DIR: ./deploy
   BUILD_DIR: ./build
   TEST_DIR: ./test
