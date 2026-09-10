@@ -1,0 +1,64 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  APP_GIT: git@github.com:tuan0919/test-deployment-for-infradesk.git
+  APP_REF: main
+  REGISTRY: gmo021.cansportsvg.com:9443
+  REGISTRY_USER: admin
+  IMAGE_NAME: infradesk/test-deployment
+  IMAGE_TAG: v1.0.0
+  DEPLOY_DIR: ./deploy
+  BUILD_DIR: ./build
+  TEST_DIR: ./test
+  PUBLISH_PORT: "18080"
+
+build_image:
+  stage: build
+  before_script:
+    - |
+      set -eu
+      rm -rf "$BUILD_DIR"
+      mkdir -p "$BUILD_DIR"
+      git clone --branch "$APP_REF" "$APP_GIT" "$BUILD_DIR"
+  script:
+    - |
+      set -eu
+      test -n "${REGISTRY_PASSWORD:-}"
+      echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+      docker build --build-arg APP_VERSION="$IMAGE_TAG" -t "$REGISTRY/$IMAGE_NAME:$IMAGE_TAG" "$BUILD_DIR"
+      docker push "$REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+
+unit_test:
+  stage: test
+  before_script:
+    - |
+      set -eu
+      rm -rf "$TEST_DIR"
+      mkdir -p "$TEST_DIR"
+      git clone --branch "$APP_REF" "$APP_GIT" "$TEST_DIR"
+  script:
+    - |
+      set -eu
+      cd "$TEST_DIR"
+      docker run --rm -v .:/app -w /app node:20-bookworm-slim sh -c "npm ci && npm test"
+
+deploy_local:
+  stage: deploy
+  before_script:
+    - |
+      set -eu
+      rm -rf "$DEPLOY_DIR"
+      mkdir -p "$DEPLOY_DIR"
+      git clone --branch "$APP_REF" "$APP_GIT" "$DEPLOY_DIR"
+  script:
+    - |
+      set -eu
+      test -n "${REGISTRY_PASSWORD:-}"
+      echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
+      cd "$DEPLOY_DIR"
+      export REGISTRY IMAGE_NAME IMAGE_TAG PUBLISH_PORT
+      docker compose pull
+      docker compose up -d --remove-orphans --force-recreate
