@@ -1,0 +1,33 @@
+name: test-deployment-for-infradesk
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+    volumes:
+      - ${DATA_ROOT:?Set DATA_ROOT}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    image: ${REGISTRY:-gmo021.cansportsvg.com:9443}/${IMAGE_NAME:-infradesk/test-deployment}:${IMAGE_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '${PUBLISH_PORT:-18080}:3000'
+    environment:
+      APP_VERSION: ${IMAGE_TAG:-latest}
+      DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-app}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - ${DATA_ROOT}/uploads:/data/uploads

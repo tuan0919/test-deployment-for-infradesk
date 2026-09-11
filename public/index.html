@@ -12,38 +12,57 @@
       body {
         margin: 0;
         min-height: 100vh;
-        display: grid;
-        place-items: center;
         background: #111827;
         color: #f9fafb;
+        padding: 2rem 1rem;
       }
       main {
-        width: min(36rem, calc(100% - 2rem));
-        padding: 2rem;
+        width: min(42rem, 100%);
+        margin: 0 auto;
+        padding: 1.5rem;
         border: 1px solid #374151;
         border-radius: 1rem;
         background: #1f2937;
       }
-      h1 {
-        margin: 0 0 0.5rem;
-        font-size: 1.5rem;
+      h1 { margin: 0 0 0.25rem; font-size: 1.4rem; }
+      .muted { color: #9ca3af; font-size: 0.9rem; margin: 0 0 1rem; }
+      #version { color: #6ee7b7; font-weight: 700; }
+      form { display: grid; gap: 0.5rem; margin: 1rem 0; }
+      input, textarea, button {
+        font: inherit;
+        border-radius: 0.5rem;
+        border: 1px solid #4b5563;
+        background: #111827;
+        color: inherit;
+        padding: 0.55rem 0.75rem;
       }
-      p {
-        margin: 0.35rem 0;
-        color: #d1d5db;
+      button {
+        background: #2563eb;
+        border-color: #2563eb;
+        cursor: pointer;
       }
-      #version {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #6ee7b7;
+      ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.75rem; }
+      li {
+        border: 1px solid #374151;
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        background: #0f172a;
       }
+      li header { display: flex; justify-content: space-between; gap: 0.5rem; align-items: center; }
+      .danger { background: #7f1d1d; border-color: #991b1b; }
     </style>
   </head>
   <body>
     <main>
-      <h1>This is sample for deployment testing of InfraDesk</h1>
-      <p>Chương trình mẫu để kiểm tra pipeline build → test → deploy.</p>
+      <h1>Test Deployment for InfraDesk</h1>
+      <p class="muted">CRUD mẫu + PostgreSQL. Runtime data mount ra host (<code>DATA_ROOT</code>).</p>
       <p id="version">Đang tải phiên bản…</p>
+      <form id="note-form">
+        <input id="title" name="title" placeholder="Tiêu đề" required />
+        <textarea id="body" name="body" rows="3" placeholder="Nội dung"></textarea>
+        <button type="submit">Thêm ghi chú</button>
+      </form>
+      <ul id="notes"></ul>
     </main>
     <script src="./app.js"></script>
   </body>

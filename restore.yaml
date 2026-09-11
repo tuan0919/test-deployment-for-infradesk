@@ -1,0 +1,36 @@
+stages:
+  - restore
+
+variables:
+  APP_GIT: git@github.com:tuan0919/test-deployment-for-infradesk.git
+  APP_REF: main
+  APP_SRC: ./source
+  DATA_ROOT: /var/lib/test-deployment-for-infradesk
+  BACKUP_ROOT: /var/lib/test-deployment-for-infradesk/backups
+  POSTGRES_USER: app
+  POSTGRES_DB: app
+  REGISTRY: gmo021.cansportsvg.com:9443
+  REGISTRY_USER: admin
+  IMAGE_NAME: infradesk/test-deployment
+  IMAGE_TAG: v2.0.0
+  PUBLISH_PORT: "18080"
+
+restore_runtime:
+  stage: restore
+  before_script:
+    - |
+      set -eu
+      test -n "${BACKUP_ID:-}"
+      rm -rf "$APP_SRC"
+      mkdir -p "$APP_SRC"
+      git clone --branch "$APP_REF" "$APP_GIT" "$APP_SRC"
+  script:
+    - |
+      set -eu
+      test -n "${POSTGRES_PASSWORD:-}"
+      cd "$APP_SRC/deploy"
+      export DATA_ROOT BACKUP_ROOT BACKUP_ID POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD
+      export REGISTRY IMAGE_NAME IMAGE_TAG PUBLISH_PORT
+      chmod +x scripts/restore.sh
+      ./scripts/restore.sh
+      docker compose up -d --remove-orphans

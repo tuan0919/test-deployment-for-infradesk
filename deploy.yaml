@@ -2,6 +2,8 @@ stages:
   - build
   - test
   - deploy
+  - backup
+  - restore
 
 variables:
   APP_GIT: git@github.com:tuan0919/test-deployment-for-infradesk.git
@@ -9,14 +11,27 @@ variables:
   REGISTRY: gmo021.cansportsvg.com:9443
   REGISTRY_USER: admin
   IMAGE_NAME: infradesk/test-deployment
-  IMAGE_TAG: v1.1.0
-  DEPLOY_DIR: ./deploy
+  IMAGE_TAG: v2.0.0
   BUILD_DIR: ./build
   TEST_DIR: ./test
+  APP_SRC: ./source
   PUBLISH_PORT: "18080"
+  DATA_ROOT: /var/lib/test-deployment-for-infradesk
+  BACKUP_ROOT: /var/lib/test-deployment-for-infradesk/backups
+  RUN_BACKUP: "false"
+  RUN_RESTORE: "false"
+  BACKUP_ID: ""
+  POSTGRES_USER: app
+  POSTGRES_DB: app
 
 build_image:
   stage: build
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: on_success
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: on_success
+    - when: never
   before_script:
     - |
       set -eu
@@ -33,6 +48,12 @@ build_image:
 
 unit_test:
   stage: test
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: on_success
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: on_success
+    - when: never
   before_script:
     - |
       set -eu
@@ -43,22 +64,77 @@ unit_test:
     - |
       set -eu
       cd "$TEST_DIR"
-      docker run --rm -v .:/app -w /app node:20-bookworm-slim sh -c "npm ci && npm test"
+      docker run --rm -v "$(pwd)":/app -w /app node:20-bookworm-slim sh -c "npm ci && npm test"
 
 deploy_local:
   stage: deploy
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: manual
+      allow_failure: false
+    - when: never
   before_script:
     - |
       set -eu
-      rm -rf "$DEPLOY_DIR"
-      mkdir -p "$DEPLOY_DIR"
-      git clone --branch "$APP_REF" "$APP_GIT" "$DEPLOY_DIR"
+      rm -rf "$APP_SRC"
+      mkdir -p "$APP_SRC"
+      git clone --branch "$APP_REF" "$APP_GIT" "$APP_SRC"
+      mkdir -p "$DATA_ROOT/postgres" "$DATA_ROOT/uploads"
+      chmod 700 "$DATA_ROOT" || true
   script:
     - |
       set -eu
       test -n "${REGISTRY_PASSWORD:-}"
+      test -n "${POSTGRES_PASSWORD:-}"
       echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
-      cd "$DEPLOY_DIR"
-      export REGISTRY IMAGE_NAME IMAGE_TAG PUBLISH_PORT
+      cd "$APP_SRC/deploy"
+      export REGISTRY IMAGE_NAME IMAGE_TAG PUBLISH_PORT DATA_ROOT POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD
       docker compose pull
-      docker compose up -d --remove-orphans --force-recreate
+      docker compose up -d --remove-orphans
+
+backup_runtime:
+  stage: backup
+  rules:
+    - if: '$RUN_BACKUP == "true"'
+      when: manual
+      allow_failure: true
+    - when: never
+  before_script:
+    - |
+      set -eu
+      rm -rf "$APP_SRC"
+      mkdir -p "$APP_SRC" "$BACKUP_ROOT"
+      git clone --branch "$APP_REF" "$APP_GIT" "$APP_SRC"
+  script:
+    - |
+      set -eu
+      cd "$APP_SRC/deploy"
+      export DATA_ROOT BACKUP_ROOT POSTGRES_USER POSTGRES_DB IMAGE_TAG
+      export BACKUP_ID="${BACKUP_ID:-}"
+      chmod +x scripts/backup.sh
+      ./scripts/backup.sh
+
+restore_runtime:
+  stage: restore
+  rules:
+    - if: '$RUN_RESTORE == "true" && $BACKUP_ID'
+      when: manual
+      allow_failure: false
+    - when: never
+  before_script:
+    - |
+      set -eu
+      test -n "${BACKUP_ID:-}"
+      rm -rf "$APP_SRC"
+      mkdir -p "$APP_SRC"
+      git clone --branch "$APP_REF" "$APP_GIT" "$APP_SRC"
+  script:
+    - |
+      set -eu
+      test -n "${POSTGRES_PASSWORD:-}"
+      cd "$APP_SRC/deploy"
+      export DATA_ROOT BACKUP_ROOT BACKUP_ID POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD
+      export REGISTRY IMAGE_NAME IMAGE_TAG PUBLISH_PORT
+      chmod +x scripts/restore.sh
+      ./scripts/restore.sh
+      docker compose up -d --remove-orphans

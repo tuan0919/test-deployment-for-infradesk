@@ -1,5 +1,11 @@
-FROM nginx:1.27-alpine
-  ARG APP_VERSION=latest
-  COPY public/ /usr/share/nginx/html/
-  RUN chmod -R a+rX /usr/share/nginx/html \
-   && printf '{"version":"%s"}\n' "$APP_VERSION" > /usr/share/nginx/html/version.json
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY src ./src
+COPY public ./public
+ARG APP_VERSION=latest
+ENV APP_VERSION=${APP_VERSION}
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["node", "src/server.js"]

@@ -1,9 +1,0 @@
-name: test-deployment-for-infradesk
-
-services:
-  web:
-    image: ${REGISTRY:-gmo021.cansportsvg.com:9443}/${IMAGE_NAME:-infradesk/test-deployment}:${IMAGE_TAG:-latest}
-    pull_policy: always
-    ports:
-      - "${PUBLISH_PORT:-18080}:80"
-    restart: unless-stopped
