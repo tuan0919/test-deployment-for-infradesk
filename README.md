@@ -38,9 +38,9 @@ Copy env: `cp deploy/.env.example deploy/.env` và chỉnh `DATA_ROOT`, `POSTGRE
 
 | File | Mục đích |
 |------|----------|
-| [`deploy.yaml`](deploy.yaml) | build image → unit test → `docker compose up` |
-| [`backup.yaml`](backup.yaml) | `pg_dump` + tar `uploads/` → `BACKUP_ROOT/$BACKUP_ID` |
-| [`restore.yaml`](restore.yaml) | restore DB + uploads từ `BACKUP_ID`, rồi `compose up` |
+| [`deploy.yaml`](deploy.yaml) | build image → chạy đồng thời unit test, pseudo performance test, pseudo integration test → deploy thủ công |
+| [`backup.yaml`](backup.yaml) | backup thủ công: `pg_dump` + tar `uploads/` → `BACKUP_ROOT/$BACKUP_ID` |
+| [`restore.yaml`](restore.yaml) | restore thủ công từ `BACKUP_ID`, rồi `compose up` |
 
 ### Biến quan trọng
 
@@ -51,7 +51,7 @@ Copy env: `cp deploy/.env.example deploy/.env` và chỉnh `DATA_ROOT`, `POSTGRE
 | `BACKUP_ROOT` | Thư mục host chứa backup |
 | `BACKUP_ID` | Tên thư mục backup (restore); backup tự sinh nếu bỏ trống |
 | `POSTGRES_PASSWORD` | Secret pipeline (CI credential) |
-| `REGISTRY_PASSWORD` | Secret registry |
+| `REGISTRY_PASSWORD` | Secret registry (deploy và restore) |
 
 ### Flow release / rollback gợi ý
 

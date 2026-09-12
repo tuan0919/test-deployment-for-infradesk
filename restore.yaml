@@ -17,6 +17,11 @@ variables:
 
 restore_runtime:
   stage: restore
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $BACKUP_ID'
+      when: manual
+      allow_failure: false
+    - when: never
   before_script:
     - |
       set -eu
@@ -28,9 +33,11 @@ restore_runtime:
     - |
       set -eu
       test -n "${POSTGRES_PASSWORD:-}"
+      test -n "${REGISTRY_PASSWORD:-}"
       cd "$APP_SRC/deploy"
       export DATA_ROOT BACKUP_ROOT BACKUP_ID POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD
       export REGISTRY IMAGE_NAME IMAGE_TAG PUBLISH_PORT
+      echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
       chmod +x scripts/restore.sh
       ./scripts/restore.sh
       docker compose up -d --remove-orphans
