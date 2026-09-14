@@ -26,8 +26,15 @@ backup_runtime:
   script:
     - |
       set -eu
+      mkdir -p output
+      export MANIFEST_OUTPUT="$PWD/output/backup-reference.json"
       cd "$APP_SRC/deploy"
-      export DEPLOY_DIR BACKUP_ROOT POSTGRES_USER POSTGRES_DB IMAGE_TAG
+      export DEPLOY_DIR BACKUP_ROOT POSTGRES_USER POSTGRES_DB IMAGE_TAG MANIFEST_OUTPUT
       export BACKUP_ID="${BACKUP_ID:-}"
-      chmod +x scripts/backup.sh
+      chmod +x scripts/backup.sh scripts/kopia-backup.sh
       ./scripts/backup.sh
+  artifacts:
+    paths:
+      - output/backup-reference.json
+    expire_in: never
+    when: on_success

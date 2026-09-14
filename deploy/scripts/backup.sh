@@ -22,4 +22,10 @@ tar -C "$DEPLOY_DIR" -czf "${DEST}/uploads.tgz" uploads
   echo "image_tag=${IMAGE_TAG:-unknown}"
 } > "${DEST}/manifest.txt"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MANIFEST_DEST="${MANIFEST_OUTPUT:-${DEST}/backup-reference.json}"
+
+echo "Uploading backup to Kopia and publishing manifest..."
+"${SCRIPT_DIR}/kopia-backup.sh" "$DEST" "$MANIFEST_DEST"
+
 echo "backup complete: ${BACKUP_ID}"
