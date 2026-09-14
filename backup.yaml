@@ -5,7 +5,7 @@ variables:
   APP_GIT: git@github.com:tuan0919/test-deployment-for-infradesk.git
   APP_SRC: ./source
   DEPLOY_DIR: /home/gmo021/deploy-folder
-  BACKUP_ROOT: /var/lib/test-deployment-for-infradesk/backups
+  BACKUP_ROOT: /home/gmo021/deploy-folder/backups
   POSTGRES_USER: app
   POSTGRES_DB: app
 
