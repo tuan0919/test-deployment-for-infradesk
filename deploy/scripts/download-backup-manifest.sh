@@ -94,8 +94,8 @@ if ! jq -e '
   (.commitSha | type == "string") and
   (.database | type == "string") and
   (.createdAt | type == "string") and
-  ([keys[] | select(test("password|secret|token|command|script"; "i"))] | length == 0)
-' "$TEMP_FILE" > /dev/null 2>&1; then
+  ([.. | objects? | keys[] | select(test("password|secret|token|command|script"; "i"))] | length == 0)
+' "$TEMP_FILE" > /dev/null; then
   echo "Error: Manifest JSON schema validation failed" >&2
   exit 1
 fi

@@ -153,6 +153,7 @@ echo "Test 5: Malformed JSON and schema violations"
 
 # 5a: Syntax error
 DEST_5A="${TEST_TMP_DIR}/test5a_dest.json"
+STDERR_5A="${TEST_TMP_DIR}/test5a_stderr.log"
 RUN_ID_5A="55555555-5555-5555-5555-000000000001"
 PAYLOAD_5A=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5A}/artifacts/download")
 SHA256_5A=$(printf '%s' "$PAYLOAD_5A" | sha256sum | awk '{print $1}')
@@ -161,10 +162,11 @@ EXIT_CODE_5A=0
 BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
 BACKUP_RUN_ID="$RUN_ID_5A" \
 BACKUP_MANIFEST_SHA256="$SHA256_5A" \
-"$DOWNLOAD_SCRIPT" "$DEST_5A" > /dev/null 2>&1 || EXIT_CODE_5A=$?
+"$DOWNLOAD_SCRIPT" "$DEST_5A" > /dev/null 2> "$STDERR_5A" || EXIT_CODE_5A=$?
 
 assert_test "5a.1 rejects malformed JSON syntax" '[ "$EXIT_CODE_5A" -ne 0 ]' "expected non-zero, got $EXIT_CODE_5A"
 assert_test "5a.2 destination file does NOT exist" '[ ! -e "$DEST_5A" ]' "destination file should not exist"
+assert_test "5a.3 jq error message is visible on stderr" 'grep -qi "parse error" "$STDERR_5A"' "jq parse error not visible on stderr"
 
 # 5b: Missing snapshotId
 DEST_5B="${TEST_TMP_DIR}/test5b_dest.json"
@@ -240,6 +242,22 @@ BACKUP_MANIFEST_SHA256="$SHA256_5F" \
 
 assert_test "5f.1 rejects JSON containing prohibited credential/command fields" '[ "$EXIT_CODE_5F" -ne 0 ]' "expected non-zero, got $EXIT_CODE_5F"
 assert_test "5f.2 destination file does NOT exist" '[ ! -e "$DEST_5F" ]' "destination file should not exist"
+
+# 5g: Prohibited nested credentials/command fields
+DEST_5G="${TEST_TMP_DIR}/test5g_dest.json"
+RUN_ID_5G="55555555-5555-5555-5555-000000000007"
+PAYLOAD_5G=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5G}/artifacts/download")
+SHA256_5G=$(printf '%s' "$PAYLOAD_5G" | sha256sum | awk '{print $1}')
+
+EXIT_CODE_5G=0
+BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
+BACKUP_RUN_ID="$RUN_ID_5G" \
+BACKUP_MANIFEST_SHA256="$SHA256_5G" \
+"$DOWNLOAD_SCRIPT" "$DEST_5G" > /dev/null 2>&1 || EXIT_CODE_5G=$?
+
+assert_test "5g.1 rejects JSON containing prohibited nested credential/command fields" '[ "$EXIT_CODE_5G" -ne 0 ]' "expected non-zero, got $EXIT_CODE_5G"
+assert_test "5g.2 destination file does NOT exist" '[ ! -e "$DEST_5G" ]' "destination file should not exist"
+
 
 # -------------------------------------------------------------
 # 6. Existing old file at destination (must not be used as fallback on failure)

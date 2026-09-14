@@ -216,6 +216,25 @@ echo "--- Category 2: Input Validation ---"
     "Expected non-zero exit code for invalid imageTag format"
 )
 
+# 2k: Missing Kopia repository configuration in manifest mode
+(
+  VALID_MANIFEST="${TEST_TMP_DIR}/valid-manifest-no-repo.json"
+  echo '{"schemaVersion":1,"snapshotId":"snap-test-no-repo","database":"app"}' > "$VALID_MANIFEST"
+  set +e
+  export DEPLOY_DIR="${TEST_TMP_DIR}/deploy" POSTGRES_USER="app" POSTGRES_DB="app"
+  unset KOPIA_SERVER_URL KOPIA_REPOSITORY_PATH KOPIA_REPO_PATH KOPIA_CONFIG_PATH 2>/dev/null || true
+  NO_REPO_OUTPUT="${TEST_TMP_DIR}/no-repo.out"
+  "$RESTORE_SCRIPT" "$VALID_MANIFEST" > "$NO_REPO_OUTPUT" 2>&1
+  EXIT_CODE=$?
+  set -e
+  assert_test "Missing Kopia repository configuration rejected" \
+    "[ $EXIT_CODE -ne 0 ]" \
+    "Expected non-zero exit code when no Kopia repository is configured"
+  assert_test "Missing Kopia repository error message is displayed" \
+    "grep -q 'No Kopia repository configured' '$NO_REPO_OUTPUT'" \
+    "Expected 'No Kopia repository configured' error message"
+)
+
 # ----------------------------------------------------------------
 # Category 3: Security - Never Source or Eval Manifest
 # ----------------------------------------------------------------
@@ -367,6 +386,9 @@ chmod +x "$MOCK_KOPIA"
 MOCK_UPLOADS_DIR="${TEST_TMP_DIR}/mock_uploads_source"
 mkdir -p "${MOCK_UPLOADS_DIR}/uploads"
 echo "upload-file-1" > "${MOCK_UPLOADS_DIR}/uploads/file1.txt"
+
+# Default mock Kopia repository path for mock tests
+export KOPIA_REPOSITORY_PATH="${TEST_TMP_DIR}/mock_kopia_repo"
 
 # ----------------------------------------------------------------
 # Category 4: Failure Safety - Kopia Errors Must Abort Before Touching Target
@@ -852,6 +874,64 @@ echo "--- Category 8: Legacy Fallback Flow ---"
   assert_test "Legacy: restore complete reported with BACKUP_ID" \
     "grep -q 'restore complete: legacy-backup-123' '$RESTORE_OUTPUT'" \
     "Restore complete message not found in legacy mode"
+)
+
+# 8b: Legacy restore with directory path containing slashes
+(
+  TEST_DIR="${TEST_TMP_DIR}/legacy-slashes"
+  BACKUP_DIR="${TEST_DIR}/custom/backups/path-with-slashes-20260914-0100"
+  mkdir -p "$BACKUP_DIR" "${TEST_DIR}/deploy"
+  echo "legacy db sql with slashes" > "${BACKUP_DIR}/database.sql"
+  tar -czf "${BACKUP_DIR}/uploads.tgz" -C "$MOCK_UPLOADS_DIR" .
+
+  DOCKER_LOG_LEGACY_SLASH="${TEST_DIR}/docker.log"
+  touch "$DOCKER_LOG_LEGACY_SLASH"
+
+  export PATH="${MOCK_BIN_DIR}:$PATH"
+  export MOCK_DOCKER_LOG="$DOCKER_LOG_LEGACY_SLASH"
+  unset BACKUP_ROOT BACKUP_ID 2>/dev/null || true
+  export DEPLOY_DIR="${TEST_DIR}/deploy" POSTGRES_USER="app" POSTGRES_DB="app"
+
+  RESTORE_OUTPUT="${TEST_DIR}/restore.out"
+  "$RESTORE_SCRIPT" "$BACKUP_DIR" > "$RESTORE_OUTPUT" 2>&1
+
+  assert_test "Legacy slashes: restore with directory path containing slashes succeeds" \
+    "grep -q 'restore complete: ${BACKUP_DIR}' '$RESTORE_OUTPUT'" \
+    "Legacy restore with directory path containing slashes failed"
+
+  assert_test "Legacy slashes: docker compose stop web called" \
+    "grep -q 'compose stop web' '$DOCKER_LOG_LEGACY_SLASH'" \
+    "docker compose stop web was not called in legacy slashes mode"
+
+  assert_test "Legacy slashes: database drop and recreate executed" \
+    "grep -q 'DROP SCHEMA public CASCADE' '$DOCKER_LOG_LEGACY_SLASH'" \
+    "DROP SCHEMA not executed in legacy slashes mode"
+)
+
+# 8c: Legacy restore with relative directory path containing slashes
+(
+  TEST_DIR="${TEST_TMP_DIR}/legacy-rel-slashes"
+  mkdir -p "${TEST_DIR}/relative-backups/run-01" "${TEST_DIR}/deploy"
+  echo "legacy db sql relative" > "${TEST_DIR}/relative-backups/run-01/database.sql"
+  tar -czf "${TEST_DIR}/relative-backups/run-01/uploads.tgz" -C "$MOCK_UPLOADS_DIR" .
+
+  DOCKER_LOG_LEGACY_REL="${TEST_DIR}/docker.log"
+  touch "$DOCKER_LOG_LEGACY_REL"
+
+  export PATH="${MOCK_BIN_DIR}:$PATH"
+  export MOCK_DOCKER_LOG="$DOCKER_LOG_LEGACY_REL"
+  unset BACKUP_ROOT BACKUP_ID 2>/dev/null || true
+  export DEPLOY_DIR="${TEST_DIR}/deploy" POSTGRES_USER="app" POSTGRES_DB="app"
+
+  RESTORE_OUTPUT="${TEST_DIR}/restore.out"
+  (
+    cd "$TEST_DIR"
+    "$RESTORE_SCRIPT" "relative-backups/run-01" > "$RESTORE_OUTPUT" 2>&1
+  )
+
+  assert_test "Legacy relative slashes: restore with relative directory path succeeds" \
+    "grep -q 'restore complete: relative-backups/run-01' '$RESTORE_OUTPUT'" \
+    "Legacy restore with relative directory path containing slashes failed"
 )
 
 # ----------------------------------------------------------------

@@ -99,6 +99,20 @@ const FIXTURES = {
       password: 'super-secret-password-should-not-exist',
     }),
   },
+  // Case 5g: Prohibited nested credentials/command fields
+  '55555555-5555-5555-5555-000000000007': {
+    status: 200,
+    body: JSON.stringify({
+      schemaVersion: 1,
+      snapshotId: 'snap-with-nested-token',
+      commitSha: 'has-nested-secrets',
+      database: 'app',
+      createdAt: '2026-09-14T03:00:00Z',
+      extra: {
+        apiToken: 'super-secret-token-nested',
+      },
+    }),
+  },
   // Case 7: File size limit exceeded (> 256 KiB = 262144 bytes)
   '77777777-7777-7777-7777-777777777777': {
     status: 200,

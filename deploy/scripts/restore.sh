@@ -102,6 +102,12 @@ if [ -n "$MANIFEST_PATH" ]; then
   BACKUP_ID="${BACKUP_ID:-$SNAPSHOT_ID}"
   export BACKUP_ID
 
+  # Validate Kopia repository configuration early
+  if [ -z "${KOPIA_SERVER_URL:-}" ] && [ -z "${KOPIA_REPOSITORY_PATH:-}" ] && [ -z "${KOPIA_REPO_PATH:-}" ] && [ -z "${KOPIA_CONFIG_PATH:-}" ]; then
+    echo "Error: No Kopia repository configured. Set KOPIA_SERVER_URL, KOPIA_REPOSITORY_PATH, or KOPIA_CONFIG_PATH." >&2
+    exit 1
+  fi
+
   # Security: restrict permissions on config and staging directory
   umask 077
 
@@ -187,23 +193,25 @@ if [ -n "$MANIFEST_PATH" ]; then
 
 else
   # Legacy mode
-  : "${BACKUP_ROOT:?Set BACKUP_ROOT to the host backup directory}"
   BACKUP_ID="${USE_LEGACY_BACKUP_ID}"
-  if [[ ! "$BACKUP_ID" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
-    echo "Error: Invalid BACKUP_ID: $BACKUP_ID" >&2
-    exit 1
-  fi
   if [ -d "$BACKUP_ID" ]; then
     RESTORE_SOURCE_DIR="$BACKUP_ID"
+  elif [ -n "${BACKUP_ROOT:-}" ] && [ -d "${BACKUP_ROOT%/}/${BACKUP_ID}" ]; then
+    RESTORE_SOURCE_DIR="${BACKUP_ROOT%/}/${BACKUP_ID}"
   else
+    : "${BACKUP_ROOT:?Set BACKUP_ROOT to the host backup directory}"
+    if [[ ! "$BACKUP_ID" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+      echo "Error: Invalid BACKUP_ID: $BACKUP_ID" >&2
+      exit 1
+    fi
     RESTORE_SOURCE_DIR="${BACKUP_ROOT%/}/${BACKUP_ID}"
   fi
 
-  if [ ! -s "${RESTORE_SOURCE_DIR}/database.sql" ]; then
+  if [ ! -f "${RESTORE_SOURCE_DIR}/database.sql" ] || [ ! -s "${RESTORE_SOURCE_DIR}/database.sql" ]; then
     echo "Error: missing or empty ${RESTORE_SOURCE_DIR}/database.sql" >&2
     exit 1
   fi
-  if [ ! -s "${RESTORE_SOURCE_DIR}/uploads.tgz" ]; then
+  if [ ! -f "${RESTORE_SOURCE_DIR}/uploads.tgz" ] || [ ! -s "${RESTORE_SOURCE_DIR}/uploads.tgz" ]; then
     echo "Error: missing or empty ${RESTORE_SOURCE_DIR}/uploads.tgz" >&2
     exit 1
   fi
