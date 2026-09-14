@@ -9,9 +9,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-app}
     volumes:
-      - ${DATA_ROOT:?Set DATA_ROOT}/postgres:/var/lib/postgresql/data
+      - ${DEPLOY_DIR:?Set DEPLOY_DIR}/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}']
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,10 +28,10 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - '${PUBLISH_PORT:-18080}:3000'
+      - "${PUBLISH_PORT:-18080}:3000"
     environment:
       APP_VERSION: ${IMAGE_TAG:-latest}
       DATABASE_URL: postgres://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-app}
       UPLOAD_DIR: /data/uploads
     volumes:
-      - ${DATA_ROOT}/uploads:/data/uploads
+      - ${DEPLOY_DIR}/uploads:/data/uploads
