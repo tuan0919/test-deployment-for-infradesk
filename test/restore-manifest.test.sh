@@ -338,6 +338,13 @@ if [ "${1:-}" = "snapshot" ] && [ "${2:-}" = "restore" ]; then
     exit 0
   fi
 
+  if [ "$ACTION" = "corrupted_uploads" ]; then
+    mkdir -p "$TARGET_DIR"
+    echo "database content" > "${TARGET_DIR}/database.sql"
+    echo "not-a-valid-gzip-tar-archive" > "${TARGET_DIR}/uploads.tgz"
+    exit 0
+  fi
+
   if [ "$ACTION" = "pin_test" ]; then
     mkdir -p "$TARGET_DIR"
     echo "db-from-snapshot-${SNAP_ID}" > "${TARGET_DIR}/database.sql"
@@ -535,6 +542,41 @@ echo "--- Category 4: Failure Safety & Target Protection ---"
     "docker compose stop was called"
 )
 
+# 4f: Corrupted uploads.tgz in staging
+(
+  TEST_DIR="${TEST_TMP_DIR}/safety-4f"
+  mkdir -p "$TEST_DIR/deploy"
+  DOCKER_LOG_4F="${TEST_DIR}/docker.log"
+  KOPIA_LOG_4F="${TEST_DIR}/kopia.log"
+  touch "$DOCKER_LOG_4F" "$KOPIA_LOG_4F"
+
+  MANIFEST="${TEST_DIR}/manifest.json"
+  echo '{"schemaVersion":1,"snapshotId":"snap-corrupt-up-4f","database":"app"}' > "$MANIFEST"
+
+  export PATH="${MOCK_BIN_DIR}:$PATH"
+  export MOCK_DOCKER_LOG="$DOCKER_LOG_4F"
+  export MOCK_KOPIA_LOG="$KOPIA_LOG_4F"
+  export MOCK_KOPIA_ACTION="corrupted_uploads"
+  export DEPLOY_DIR="${TEST_DIR}/deploy" POSTGRES_USER="app" POSTGRES_DB="app"
+
+  set +e
+  "$RESTORE_SCRIPT" "$MANIFEST" >/dev/null 2>&1
+  EXIT_CODE=$?
+  set -e
+
+  assert_test "Corrupted uploads.tgz in staging: exit code is non-zero" \
+    "[ $EXIT_CODE -ne 0 ]" \
+    "Expected failure exit code when uploads.tgz is corrupted"
+
+  assert_test "Corrupted uploads.tgz: target untouched (no docker stop)" \
+    "! grep -q 'compose stop' '$DOCKER_LOG_4F'" \
+    "docker compose stop was called"
+
+  assert_test "Corrupted uploads.tgz: target untouched (no DROP SCHEMA)" \
+    "! grep -q 'DROP SCHEMA' '$DOCKER_LOG_4F'" \
+    "DROP SCHEMA was executed"
+)
+
 # ----------------------------------------------------------------
 # Category 5: Snapshot Pinning / Selection (Snapshot A vs Snapshot B)
 # ----------------------------------------------------------------
@@ -700,6 +742,7 @@ echo "--- Category 7: End-to-End Success Flow ---"
 (
   TEST_DIR="${TEST_TMP_DIR}/e2e-success"
   mkdir -p "$TEST_DIR/input" "$TEST_DIR/deploy"
+  umask 022
   DEST_MANIFEST="$TEST_DIR/input/backup-reference.json"
   DOCKER_LOG_E2E="${TEST_DIR}/docker.log"
   KOPIA_LOG_E2E="${TEST_DIR}/kopia.log"
@@ -761,6 +804,12 @@ echo "--- Category 7: End-to-End Success Flow ---"
   assert_test "E2E: restore complete reported" \
     "grep -q 'restore complete: ${SNAP_ID_EXPECTED}' '$RESTORE_OUTPUT'" \
     "Restore complete message not found"
+
+  # Step 3: Verify permissions and umask restoration
+  UPLOADS_PERM=$(stat -c "%a" "${TEST_DIR}/deploy/uploads")
+  assert_test "E2E: umask restored - deploy/uploads directory has mode 755 ($UPLOADS_PERM)" \
+    "[ '$UPLOADS_PERM' = '755' ]" \
+    "Expected 755, got $UPLOADS_PERM (umask 077 was not restored)"
 )
 
 # ----------------------------------------------------------------

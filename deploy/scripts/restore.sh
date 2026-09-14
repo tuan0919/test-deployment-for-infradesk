@@ -6,6 +6,8 @@ set -euo pipefail
 # with fallback support for legacy backup directory restore.
 # Usage: ./restore.sh [manifest-file-path | backup-folder-name]
 
+ORIG_UMASK="$(umask)"
+
 : "${DEPLOY_DIR:?Error: Set DEPLOY_DIR to the host runtime directory}"
 : "${POSTGRES_USER:?Error: Set POSTGRES_USER}"
 : "${POSTGRES_DB:?Error: Set POSTGRES_DB}"
@@ -176,6 +178,11 @@ if [ -n "$MANIFEST_PATH" ]; then
     exit 1
   fi
 
+  if ! tar -tzf "${STAGING_DIR}/uploads.tgz" >/dev/null 2>&1; then
+    echo "Error: Corrupted or invalid uploads.tgz archive in restored snapshot" >&2
+    exit 1
+  fi
+
   RESTORE_SOURCE_DIR="$STAGING_DIR"
 
 else
@@ -200,10 +207,17 @@ else
     echo "Error: missing or empty ${RESTORE_SOURCE_DIR}/uploads.tgz" >&2
     exit 1
   fi
+  if ! tar -tzf "${RESTORE_SOURCE_DIR}/uploads.tgz" >/dev/null 2>&1; then
+    echo "Error: Corrupted or invalid uploads.tgz archive in backup" >&2
+    exit 1
+  fi
   export BACKUP_ID
 fi
 
 echo "Restoring from ${RESTORE_SOURCE_DIR}"
+
+# Restore caller umask before creating deployment directories and extracting uploads
+umask "${ORIG_UMASK:-022}"
 
 docker compose stop web
 mkdir -p "${DEPLOY_DIR}/uploads"
