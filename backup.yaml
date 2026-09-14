@@ -5,16 +5,15 @@ variables:
   APP_GIT: git@github.com:tuan0919/test-deployment-for-infradesk.git
   APP_REF: main
   APP_SRC: ./source
-  DATA_ROOT: /var/lib/test-deployment-for-infradesk
+  DEPLOY_DIR: /home/gmo021/deploy-folder
   BACKUP_ROOT: /var/lib/test-deployment-for-infradesk/backups
   POSTGRES_USER: app
   POSTGRES_DB: app
-  IMAGE_TAG: v2.0.0
 
 backup_runtime:
   stage: backup
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
       when: manual
       allow_failure: false
     - when: never
@@ -28,7 +27,7 @@ backup_runtime:
     - |
       set -eu
       cd "$APP_SRC/deploy"
-      export DATA_ROOT BACKUP_ROOT POSTGRES_USER POSTGRES_DB IMAGE_TAG
+      export DEPLOY_DIR BACKUP_ROOT POSTGRES_USER POSTGRES_DB IMAGE_TAG
       export BACKUP_ID="${BACKUP_ID:-}"
       chmod +x scripts/backup.sh
       ./scripts/backup.sh

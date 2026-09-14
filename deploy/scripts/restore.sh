@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${DATA_ROOT:?Set DATA_ROOT to the host runtime directory}"
+: "${DEPLOY_DIR:?Set DEPLOY_DIR to the host runtime directory}"
 : "${BACKUP_ROOT:?Set BACKUP_ROOT to the host backup directory}"
 : "${BACKUP_ID:?Set BACKUP_ID to the backup folder name}"
 : "${POSTGRES_USER:?Set POSTGRES_USER}"
@@ -14,8 +14,8 @@ test -f "${DEST}/uploads.tgz" || { echo "missing ${DEST}/uploads.tgz"; exit 1; }
 echo "Restoring from ${DEST}"
 
 docker compose stop web
-mkdir -p "${DATA_ROOT}/uploads"
-tar -xzf "${DEST}/uploads.tgz" -C "$DATA_ROOT"
+mkdir -p "${DEPLOY_DIR}/uploads"
+tar -xzf "${DEST}/uploads.tgz" -C "$DEPLOY_DIR"
 
 docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
 

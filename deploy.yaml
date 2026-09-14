@@ -16,16 +16,16 @@ variables:
   INTEGRATION_TEST_DIR: ./integration-test
   APP_SRC: ./source
   PUBLISH_PORT: "18080"
-  DATA_ROOT: /var/lib/test-deployment-for-infradesk
+  DEPLOY_DIR: /home/gmo021/deploy-folder
   POSTGRES_USER: app
   POSTGRES_DB: app
 
 build_image:
   stage: build
   rules:
-    - if: '$CI_COMMIT_TAG'
+    - if: "$CI_COMMIT_TAG"
       when: on_success
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
       when: on_success
     - when: never
   before_script:
@@ -45,9 +45,9 @@ build_image:
 unit_test:
   stage: test
   rules:
-    - if: '$CI_COMMIT_TAG'
+    - if: "$CI_COMMIT_TAG"
       when: on_success
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
       when: on_success
     - when: never
   before_script:
@@ -65,9 +65,9 @@ unit_test:
 performance_test:
   stage: test
   rules:
-    - if: '$CI_COMMIT_TAG'
+    - if: "$CI_COMMIT_TAG"
       when: on_success
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
       when: on_success
     - when: never
   before_script:
@@ -92,9 +92,9 @@ performance_test:
 integration_test:
   stage: test
   rules:
-    - if: '$CI_COMMIT_TAG'
+    - if: "$CI_COMMIT_TAG"
       when: on_success
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
       when: on_success
     - when: never
   before_script:
@@ -117,10 +117,10 @@ integration_test:
 deploy_local:
   stage: deploy
   rules:
-    - if: '$CI_COMMIT_TAG'
+    - if: "$CI_COMMIT_TAG"
       when: manual
       allow_failure: false
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: "$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH"
       when: manual
       allow_failure: false
     - when: never
@@ -130,8 +130,8 @@ deploy_local:
       rm -rf "$APP_SRC"
       mkdir -p "$APP_SRC"
       git clone --branch "$APP_REF" "$APP_GIT" "$APP_SRC"
-      mkdir -p "$DATA_ROOT/postgres" "$DATA_ROOT/uploads"
-      chmod 700 "$DATA_ROOT" || true
+      mkdir -p "$DEPLOY_DIR/postgres" "$DEPLOY_DIR/uploads"
+      chmod 700 "$DEPLOY_DIR" || true
   script:
     - |
       set -eu
@@ -139,6 +139,6 @@ deploy_local:
       test -n "${POSTGRES_PASSWORD:-}"
       echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USER" --password-stdin
       cd "$APP_SRC/deploy"
-      export REGISTRY IMAGE_NAME IMAGE_TAG PUBLISH_PORT DATA_ROOT POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD
+      export REGISTRY IMAGE_NAME IMAGE_TAG PUBLISH_PORT DEPLOY_DIR POSTGRES_USER POSTGRES_DB POSTGRES_PASSWORD
       docker compose pull
       docker compose up -d --remove-orphans
