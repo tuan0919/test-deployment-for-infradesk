@@ -23,18 +23,6 @@ rm -f "$DEST"
 : "${BACKUP_RUN_ID:?Error: BACKUP_RUN_ID environment variable is required}"
 : "${BACKUP_MANIFEST_SHA256:?Error: BACKUP_MANIFEST_SHA256 environment variable is required}"
 
-UUID_REGEX='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-SHA256_REGEX='^[0-9a-fA-F]{64}$'
-
-if [[ ! "$BACKUP_PIPELINE_ID" =~ $UUID_REGEX ]]; then
-  echo "Error: Invalid BACKUP_PIPELINE_ID format (expected UUID): $BACKUP_PIPELINE_ID" >&2
-  exit 1
-fi
-
-if [[ ! "$BACKUP_RUN_ID" =~ $UUID_REGEX ]]; then
-  echo "Error: Invalid BACKUP_RUN_ID format (expected UUID): $BACKUP_RUN_ID" >&2
-  exit 1
-fi
 
 if [[ ! "$BACKUP_MANIFEST_SHA256" =~ $SHA256_REGEX ]]; then
   echo "Error: Invalid BACKUP_MANIFEST_SHA256 format (expected 64 hex characters): $BACKUP_MANIFEST_SHA256" >&2
