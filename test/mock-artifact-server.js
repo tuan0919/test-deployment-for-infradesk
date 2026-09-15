@@ -130,27 +130,18 @@ const FIXTURES = {
 
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
-  const match = parsedUrl.pathname.match(/^\/api\/pipelines\/([^/]+)\/runs\/([^/]+)\/artifacts\/download$/);
+  const match = parsedUrl.pathname.match(/^\/api\/artifacts\/([^/]+)\/download$/);
 
   if (!match) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'Endpoint not found' }));
   }
 
-  const [, pipelineId, runId] = match;
-  const job = parsedUrl.searchParams.get('job');
-  const artifactPath = parsedUrl.searchParams.get('path');
-
-  // Verify expected query parameters
-  if (job !== 'backup_runtime' || artifactPath !== 'output/backup-reference.json') {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ error: 'Invalid query parameters' }));
-  }
-
-  const fixture = FIXTURES[runId];
+  const [, artifactId] = match;
+  const fixture = FIXTURES[artifactId];
   if (!fixture) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ error: 'Run not found' }));
+    return res.end(JSON.stringify({ error: 'Artifact not found' }));
   }
 
   const sendResponse = () => {

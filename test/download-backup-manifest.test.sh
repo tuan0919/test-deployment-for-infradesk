@@ -46,7 +46,6 @@ fi
 
 echo "Mock artifact server listening on port $PORT"
 export ARTIFACT_API_BASE="http://127.0.0.1:${PORT}"
-DEFAULT_PIPELINE_ID="11111111-1111-1111-1111-111111111111"
 
 TESTS_RUN=0
 TESTS_PASSED=0
@@ -74,13 +73,12 @@ echo "=== Running download-backup-manifest.sh test suite ==="
 # -------------------------------------------------------------
 echo "Test 1: Success case A (valid download, matching checksum, valid schema)"
 DEST_1="${TEST_TMP_DIR}/test1_dest.json"
-RUN_ID_1="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-PAYLOAD_1=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_1}/artifacts/download")
+ARTIFACT_ID_1="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+PAYLOAD_1=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_1}/download")
 SHA256_1=$(printf '%s' "$PAYLOAD_1" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_1=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_1" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_1" \
 BACKUP_MANIFEST_SHA256="$SHA256_1" \
 "$DOWNLOAD_SCRIPT" "$DEST_1" > /dev/null 2>&1 || EXIT_CODE_1=$?
 
@@ -95,12 +93,11 @@ assert_test "1.5 no temp .part.* files remaining" '[ $(ls "${TEST_TMP_DIR}"/test
 # -------------------------------------------------------------
 echo "Test 2: HTTP 404 Not Found"
 DEST_2="${TEST_TMP_DIR}/test2_dest.json"
-RUN_ID_2="40444444-4444-4444-4444-444444444444"
+ARTIFACT_ID_2="40444444-4444-4444-4444-444444444444"
 DUMMY_SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 EXIT_CODE_2=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_2" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_2" \
 BACKUP_MANIFEST_SHA256="$DUMMY_SHA" \
 "$DOWNLOAD_SCRIPT" "$DEST_2" > /dev/null 2>&1 || EXIT_CODE_2=$?
 
@@ -113,14 +110,13 @@ assert_test "2.3 no temp .part.* files remaining" '[ $(ls "${TEST_TMP_DIR}"/test
 # -------------------------------------------------------------
 echo "Test 3: Connection / request timeout"
 DEST_3="${TEST_TMP_DIR}/test3_dest.json"
-RUN_ID_3="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+ARTIFACT_ID_3="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 DUMMY_SHA_3="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 EXIT_CODE_3=0
 CURL_MAX_TIME=1 \
 CURL_CONNECT_TIMEOUT=1 \
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_3" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_3" \
 BACKUP_MANIFEST_SHA256="$DUMMY_SHA_3" \
 "$DOWNLOAD_SCRIPT" "$DEST_3" > /dev/null 2>&1 || EXIT_CODE_3=$?
 
@@ -133,12 +129,11 @@ assert_test "3.3 no temp .part.* files remaining" '[ $(ls "${TEST_TMP_DIR}"/test
 # -------------------------------------------------------------
 echo "Test 4: Checksum mismatch"
 DEST_4="${TEST_TMP_DIR}/test4_dest.json"
-RUN_ID_4="cccccccc-cccc-cccc-cccc-cccccccccccc"
+ARTIFACT_ID_4="cccccccc-cccc-cccc-cccc-cccccccccccc"
 MISMATCHED_SHA="0000000000000000000000000000000000000000000000000000000000000000"
 
 EXIT_CODE_4=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_4" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_4" \
 BACKUP_MANIFEST_SHA256="$MISMATCHED_SHA" \
 "$DOWNLOAD_SCRIPT" "$DEST_4" > /dev/null 2>&1 || EXIT_CODE_4=$?
 
@@ -154,13 +149,12 @@ echo "Test 5: Malformed JSON and schema violations"
 # 5a: Syntax error
 DEST_5A="${TEST_TMP_DIR}/test5a_dest.json"
 STDERR_5A="${TEST_TMP_DIR}/test5a_stderr.log"
-RUN_ID_5A="55555555-5555-5555-5555-000000000001"
-PAYLOAD_5A=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5A}/artifacts/download")
+ARTIFACT_ID_5A="55555555-5555-5555-5555-000000000001"
+PAYLOAD_5A=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_5A}/download")
 SHA256_5A=$(printf '%s' "$PAYLOAD_5A" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_5A=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_5A" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_5A" \
 BACKUP_MANIFEST_SHA256="$SHA256_5A" \
 "$DOWNLOAD_SCRIPT" "$DEST_5A" > /dev/null 2> "$STDERR_5A" || EXIT_CODE_5A=$?
 
@@ -170,13 +164,12 @@ assert_test "5a.3 jq error message is visible on stderr" 'grep -qi "parse error"
 
 # 5b: Missing snapshotId
 DEST_5B="${TEST_TMP_DIR}/test5b_dest.json"
-RUN_ID_5B="55555555-5555-5555-5555-000000000002"
-PAYLOAD_5B=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5B}/artifacts/download")
+ARTIFACT_ID_5B="55555555-5555-5555-5555-000000000002"
+PAYLOAD_5B=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_5B}/download")
 SHA256_5B=$(printf '%s' "$PAYLOAD_5B" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_5B=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_5B" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_5B" \
 BACKUP_MANIFEST_SHA256="$SHA256_5B" \
 "$DOWNLOAD_SCRIPT" "$DEST_5B" > /dev/null 2>&1 || EXIT_CODE_5B=$?
 
@@ -185,13 +178,12 @@ assert_test "5b.2 destination file does NOT exist" '[ ! -e "$DEST_5B" ]' "destin
 
 # 5c: Empty snapshotId
 DEST_5C="${TEST_TMP_DIR}/test5c_dest.json"
-RUN_ID_5C="55555555-5555-5555-5555-000000000003"
-PAYLOAD_5C=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5C}/artifacts/download")
+ARTIFACT_ID_5C="55555555-5555-5555-5555-000000000003"
+PAYLOAD_5C=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_5C}/download")
 SHA256_5C=$(printf '%s' "$PAYLOAD_5C" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_5C=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_5C" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_5C" \
 BACKUP_MANIFEST_SHA256="$SHA256_5C" \
 "$DOWNLOAD_SCRIPT" "$DEST_5C" > /dev/null 2>&1 || EXIT_CODE_5C=$?
 
@@ -200,13 +192,12 @@ assert_test "5c.2 destination file does NOT exist" '[ ! -e "$DEST_5C" ]' "destin
 
 # 5d: Wrong schemaVersion
 DEST_5D="${TEST_TMP_DIR}/test5d_dest.json"
-RUN_ID_5D="55555555-5555-5555-5555-000000000004"
-PAYLOAD_5D=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5D}/artifacts/download")
+ARTIFACT_ID_5D="55555555-5555-5555-5555-000000000004"
+PAYLOAD_5D=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_5D}/download")
 SHA256_5D=$(printf '%s' "$PAYLOAD_5D" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_5D=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_5D" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_5D" \
 BACKUP_MANIFEST_SHA256="$SHA256_5D" \
 "$DOWNLOAD_SCRIPT" "$DEST_5D" > /dev/null 2>&1 || EXIT_CODE_5D=$?
 
@@ -215,13 +206,12 @@ assert_test "5d.2 destination file does NOT exist" '[ ! -e "$DEST_5D" ]' "destin
 
 # 5e: Missing required string fields
 DEST_5E="${TEST_TMP_DIR}/test5e_dest.json"
-RUN_ID_5E="55555555-5555-5555-5555-000000000005"
-PAYLOAD_5E=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5E}/artifacts/download")
+ARTIFACT_ID_5E="55555555-5555-5555-5555-000000000005"
+PAYLOAD_5E=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_5E}/download")
 SHA256_5E=$(printf '%s' "$PAYLOAD_5E" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_5E=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_5E" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_5E" \
 BACKUP_MANIFEST_SHA256="$SHA256_5E" \
 "$DOWNLOAD_SCRIPT" "$DEST_5E" > /dev/null 2>&1 || EXIT_CODE_5E=$?
 
@@ -230,13 +220,12 @@ assert_test "5e.2 destination file does NOT exist" '[ ! -e "$DEST_5E" ]' "destin
 
 # 5f: Prohibited credentials/command fields
 DEST_5F="${TEST_TMP_DIR}/test5f_dest.json"
-RUN_ID_5F="55555555-5555-5555-5555-000000000006"
-PAYLOAD_5F=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5F}/artifacts/download")
+ARTIFACT_ID_5F="55555555-5555-5555-5555-000000000006"
+PAYLOAD_5F=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_5F}/download")
 SHA256_5F=$(printf '%s' "$PAYLOAD_5F" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_5F=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_5F" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_5F" \
 BACKUP_MANIFEST_SHA256="$SHA256_5F" \
 "$DOWNLOAD_SCRIPT" "$DEST_5F" > /dev/null 2>&1 || EXIT_CODE_5F=$?
 
@@ -245,13 +234,12 @@ assert_test "5f.2 destination file does NOT exist" '[ ! -e "$DEST_5F" ]' "destin
 
 # 5g: Prohibited nested credentials/command fields
 DEST_5G="${TEST_TMP_DIR}/test5g_dest.json"
-RUN_ID_5G="55555555-5555-5555-5555-000000000007"
-PAYLOAD_5G=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_5G}/artifacts/download")
+ARTIFACT_ID_5G="55555555-5555-5555-5555-000000000007"
+PAYLOAD_5G=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_5G}/download")
 SHA256_5G=$(printf '%s' "$PAYLOAD_5G" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_5G=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_5G" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_5G" \
 BACKUP_MANIFEST_SHA256="$SHA256_5G" \
 "$DOWNLOAD_SCRIPT" "$DEST_5G" > /dev/null 2>&1 || EXIT_CODE_5G=$?
 
@@ -269,8 +257,7 @@ DEST_6A="${TEST_TMP_DIR}/test6a_old_file.json"
 echo '{"schemaVersion": 1, "snapshotId": "stale-old-backup"}' > "$DEST_6A"
 
 EXIT_CODE_6A=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="40444444-4444-4444-4444-444444444444" \
+BACKUP_ARTIFACT_ID="40444444-4444-4444-4444-444444444444" \
 BACKUP_MANIFEST_SHA256="$DUMMY_SHA" \
 "$DOWNLOAD_SCRIPT" "$DEST_6A" > /dev/null 2>&1 || EXIT_CODE_6A=$?
 
@@ -282,8 +269,7 @@ DEST_6B="${TEST_TMP_DIR}/test6b_old_file.json"
 echo '{"schemaVersion": 1, "snapshotId": "stale-old-backup"}' > "$DEST_6B"
 
 EXIT_CODE_6B=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_4" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_4" \
 BACKUP_MANIFEST_SHA256="$MISMATCHED_SHA" \
 "$DOWNLOAD_SCRIPT" "$DEST_6B" > /dev/null 2>&1 || EXIT_CODE_6B=$?
 
@@ -295,8 +281,7 @@ DEST_6C="${TEST_TMP_DIR}/test6c_old_file.json"
 echo '{"schemaVersion": 1, "snapshotId": "stale-old-backup"}' > "$DEST_6C"
 
 EXIT_CODE_6C=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_5B" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_5B" \
 BACKUP_MANIFEST_SHA256="$SHA256_5B" \
 "$DOWNLOAD_SCRIPT" "$DEST_6C" > /dev/null 2>&1 || EXIT_CODE_6C=$?
 
@@ -308,13 +293,12 @@ assert_test "6c.2 pre-existing file was eliminated" '[ ! -e "$DEST_6C" ]' "stale
 # -------------------------------------------------------------
 echo "Test 7: File size limit (> 256 KiB)"
 DEST_7="${TEST_TMP_DIR}/test7_dest.json"
-RUN_ID_7="77777777-7777-7777-7777-777777777777"
-PAYLOAD_7=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${ARTIFACT_API_BASE}/api/pipelines/${DEFAULT_PIPELINE_ID}/runs/${RUN_ID_7}/artifacts/download")
+ARTIFACT_ID_7="77777777-7777-7777-7777-777777777777"
+PAYLOAD_7=$(curl -s "${ARTIFACT_API_BASE}/api/artifacts/${ARTIFACT_ID_7}/download")
 SHA256_7=$(printf '%s' "$PAYLOAD_7" | sha256sum | awk '{print $1}')
 
 EXIT_CODE_7=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_7" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_7" \
 BACKUP_MANIFEST_SHA256="$SHA256_7" \
 "$DOWNLOAD_SCRIPT" "$DEST_7" > /dev/null 2>&1 || EXIT_CODE_7=$?
 
@@ -328,42 +312,41 @@ echo "Test 8: Input validation"
 
 DEST_8="${TEST_TMP_DIR}/test8_dest.json"
 
-# 8a: Invalid BACKUP_PIPELINE_ID format
+# 8a: Invalid BACKUP_ARTIFACT_ID format
 EXIT_CODE_8A=0
-BACKUP_PIPELINE_ID="not-a-uuid" \
-BACKUP_RUN_ID="$RUN_ID_1" \
+BACKUP_ARTIFACT_ID="not-a-uuid" \
 BACKUP_MANIFEST_SHA256="$SHA256_1" \
 "$DOWNLOAD_SCRIPT" "$DEST_8" > /dev/null 2>&1 || EXIT_CODE_8A=$?
-assert_test "8a rejects non-UUID BACKUP_PIPELINE_ID" '[ "$EXIT_CODE_8A" -ne 0 ]' "expected non-zero"
+assert_test "8a rejects non-UUID BACKUP_ARTIFACT_ID" '[ "$EXIT_CODE_8A" -ne 0 ]' "expected non-zero"
 
-# 8b: Invalid BACKUP_RUN_ID format
+# 8b: Missing BACKUP_ARTIFACT_ID
 EXIT_CODE_8B=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="invalid-run-id" \
-BACKUP_MANIFEST_SHA256="$SHA256_1" \
-"$DOWNLOAD_SCRIPT" "$DEST_8" > /dev/null 2>&1 || EXIT_CODE_8B=$?
-assert_test "8b rejects non-UUID BACKUP_RUN_ID" '[ "$EXIT_CODE_8B" -ne 0 ]' "expected non-zero"
+(unset BACKUP_ARTIFACT_ID; BACKUP_MANIFEST_SHA256="$SHA256_1" "$DOWNLOAD_SCRIPT" "$DEST_8" > /dev/null 2>&1) || EXIT_CODE_8B=$?
+assert_test "8b rejects missing BACKUP_ARTIFACT_ID" '[ "$EXIT_CODE_8B" -ne 0 ]' "expected non-zero"
 
 # 8c: Invalid SHA256 format (e.g. 10 chars)
 EXIT_CODE_8C=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_1" \
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_1" \
 BACKUP_MANIFEST_SHA256="shortsha" \
 "$DOWNLOAD_SCRIPT" "$DEST_8" > /dev/null 2>&1 || EXIT_CODE_8C=$?
 assert_test "8c rejects invalid SHA256 format" '[ "$EXIT_CODE_8C" -ne 0 ]' "expected non-zero"
 
-# 8d: Missing destination argument
+# 8d: Missing BACKUP_MANIFEST_SHA256
 EXIT_CODE_8D=0
-BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" \
-BACKUP_RUN_ID="$RUN_ID_1" \
-BACKUP_MANIFEST_SHA256="$SHA256_1" \
-"$DOWNLOAD_SCRIPT" > /dev/null 2>&1 || EXIT_CODE_8D=$?
-assert_test "8d rejects missing destination argument" '[ "$EXIT_CODE_8D" -ne 0 ]' "expected non-zero"
+(unset BACKUP_MANIFEST_SHA256; BACKUP_ARTIFACT_ID="$ARTIFACT_ID_1" "$DOWNLOAD_SCRIPT" "$DEST_8" > /dev/null 2>&1) || EXIT_CODE_8D=$?
+assert_test "8d rejects missing BACKUP_MANIFEST_SHA256" '[ "$EXIT_CODE_8D" -ne 0 ]' "expected non-zero"
 
-# 8e: Missing ARTIFACT_API_BASE
+# 8e: Missing destination argument
 EXIT_CODE_8E=0
-(unset ARTIFACT_API_BASE; BACKUP_PIPELINE_ID="$DEFAULT_PIPELINE_ID" BACKUP_RUN_ID="$RUN_ID_1" BACKUP_MANIFEST_SHA256="$SHA256_1" "$DOWNLOAD_SCRIPT" "$DEST_8" > /dev/null 2>&1) || EXIT_CODE_8E=$?
-assert_test "8e rejects missing ARTIFACT_API_BASE" '[ "$EXIT_CODE_8E" -ne 0 ]' "expected non-zero"
+BACKUP_ARTIFACT_ID="$ARTIFACT_ID_1" \
+BACKUP_MANIFEST_SHA256="$SHA256_1" \
+"$DOWNLOAD_SCRIPT" > /dev/null 2>&1 || EXIT_CODE_8E=$?
+assert_test "8e rejects missing destination argument" '[ "$EXIT_CODE_8E" -ne 0 ]' "expected non-zero"
+
+# 8f: Missing ARTIFACT_API_BASE
+EXIT_CODE_8F=0
+(unset ARTIFACT_API_BASE; BACKUP_ARTIFACT_ID="$ARTIFACT_ID_1" BACKUP_MANIFEST_SHA256="$SHA256_1" "$DOWNLOAD_SCRIPT" "$DEST_8" > /dev/null 2>&1) || EXIT_CODE_8F=$?
+assert_test "8f rejects missing ARTIFACT_API_BASE" '[ "$EXIT_CODE_8F" -ne 0 ]' "expected non-zero"
 
 # -------------------------------------------------------------
 # Summary

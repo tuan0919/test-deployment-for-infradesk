@@ -675,7 +675,6 @@ if [ -z "$PORT" ]; then
 fi
 
 MOCK_API_BASE="http://127.0.0.1:${PORT}"
-TEST_PIPELINE_ID="11111111-1111-1111-1111-111111111111"
 
 # 6a: Producer 404 - download fails, restore never called
 (
@@ -690,8 +689,7 @@ TEST_PIPELINE_ID="11111111-1111-1111-1111-111111111111"
   export MOCK_DOCKER_LOG="$DOCKER_LOG_6A"
   export MOCK_KOPIA_LOG="$KOPIA_LOG_6A"
   export ARTIFACT_API_BASE="$MOCK_API_BASE"
-  export BACKUP_PIPELINE_ID="$TEST_PIPELINE_ID"
-  export BACKUP_RUN_ID="40444444-4444-4444-4444-444444444444"
+  export BACKUP_ARTIFACT_ID="40444444-4444-4444-4444-444444444444"
   export BACKUP_MANIFEST_SHA256="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   export DEPLOY_DIR="${TEST_DIR}/deploy" POSTGRES_USER="app" POSTGRES_DB="app"
 
@@ -730,8 +728,7 @@ TEST_PIPELINE_ID="11111111-1111-1111-1111-111111111111"
   export MOCK_DOCKER_LOG="$DOCKER_LOG_6B"
   export MOCK_KOPIA_LOG="$KOPIA_LOG_6B"
   export ARTIFACT_API_BASE="$MOCK_API_BASE"
-  export BACKUP_PIPELINE_ID="$TEST_PIPELINE_ID"
-  export BACKUP_RUN_ID="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+  export BACKUP_ARTIFACT_ID="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
   export BACKUP_MANIFEST_SHA256="0000000000000000000000000000000000000000000000000000000000000000"
   export DEPLOY_DIR="${TEST_DIR}/deploy" POSTGRES_USER="app" POSTGRES_DB="app"
 
@@ -771,8 +768,8 @@ echo "--- Category 7: End-to-End Success Flow ---"
   touch "$DOCKER_LOG_E2E" "$KOPIA_LOG_E2E"
 
   # Fetch payload from mock server to get valid SHA256
-  VALID_RUN_ID="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
-  PAYLOAD=$(curl -s --get --data-urlencode 'job=backup_runtime' --data-urlencode 'path=output/backup-reference.json' "${MOCK_API_BASE}/api/pipelines/${TEST_PIPELINE_ID}/runs/${VALID_RUN_ID}/artifacts/download")
+  VALID_ARTIFACT_ID="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+  PAYLOAD=$(curl -s "${MOCK_API_BASE}/api/artifacts/${VALID_ARTIFACT_ID}/download")
   VALID_SHA256=$(printf '%s' "$PAYLOAD" | sha256sum | awk '{print $1}')
 
   export PATH="${MOCK_BIN_DIR}:$PATH"
@@ -781,8 +778,7 @@ echo "--- Category 7: End-to-End Success Flow ---"
   export MOCK_KOPIA_ACTION="success"
   export MOCK_UPLOADS_SRC="$MOCK_UPLOADS_DIR"
   export ARTIFACT_API_BASE="$MOCK_API_BASE"
-  export BACKUP_PIPELINE_ID="$TEST_PIPELINE_ID"
-  export BACKUP_RUN_ID="$VALID_RUN_ID"
+  export BACKUP_ARTIFACT_ID="$VALID_ARTIFACT_ID"
   export BACKUP_MANIFEST_SHA256="$VALID_SHA256"
   export DEPLOY_DIR="${TEST_DIR}/deploy" POSTGRES_USER="app" POSTGRES_DB="app"
 
@@ -1042,21 +1038,16 @@ assert_test "restore.yaml has 0 diagnostics" \
 
 # Variables checks
 VAR_BASE=$(echo "$PARSER_RESULT" | jq -r '.plan.variables.ARTIFACT_API_BASE // "missing"')
-VAR_PIPE=$(echo "$PARSER_RESULT" | jq -r '.plan.variables.BACKUP_PIPELINE_ID // "missing"')
-VAR_RUN=$(echo "$PARSER_RESULT" | jq -r '.plan.variables.BACKUP_RUN_ID // "missing"')
+VAR_ARTIFACT=$(echo "$PARSER_RESULT" | jq -r '.plan.variables.BACKUP_ARTIFACT_ID // "missing"')
 VAR_SHA=$(echo "$PARSER_RESULT" | jq -r '.plan.variables.BACKUP_MANIFEST_SHA256 // "missing"')
 
 assert_test "restore.yaml declares ARTIFACT_API_BASE variable" \
   "[ '$VAR_BASE' != 'missing' ]" \
   "ARTIFACT_API_BASE was missing"
 
-assert_test "restore.yaml declares BACKUP_PIPELINE_ID variable" \
-  "[ '$VAR_PIPE' != 'missing' ]" \
-  "BACKUP_PIPELINE_ID was missing"
-
-assert_test "restore.yaml declares BACKUP_RUN_ID variable" \
-  "[ '$VAR_RUN' != 'missing' ]" \
-  "BACKUP_RUN_ID was missing"
+assert_test "restore.yaml declares BACKUP_ARTIFACT_ID variable" \
+  "[ '$VAR_ARTIFACT' != 'missing' ]" \
+  "BACKUP_ARTIFACT_ID was missing"
 
 assert_test "restore.yaml declares BACKUP_MANIFEST_SHA256 variable" \
   "[ '$VAR_SHA' != 'missing' ]" \
@@ -1067,9 +1058,9 @@ RULE_IF=$(echo "$PARSER_RESULT" | jq -r '.plan.jobs[] | select(.name == "restore
 RULE_WHEN=$(echo "$PARSER_RESULT" | jq -r '.plan.jobs[] | select(.name == "restore_runtime") | .rules[0].when // empty')
 RULE_ALLOW_FAIL=$(echo "$PARSER_RESULT" | jq -r '.plan.jobs[] | select(.name == "restore_runtime") | .rules[0].allowFailure')
 
-assert_test "restore_runtime rule requires BACKUP_RUN_ID ($RULE_IF)" \
-  "echo '$RULE_IF' | grep -q 'BACKUP_RUN_ID'" \
-  "Rule did not require BACKUP_RUN_ID"
+assert_test "restore_runtime rule requires BACKUP_ARTIFACT_ID ($RULE_IF)" \
+  "echo '$RULE_IF' | grep -q 'BACKUP_ARTIFACT_ID'" \
+  "Rule did not require BACKUP_ARTIFACT_ID"
 
 assert_test "restore_runtime rule when is manual" \
   "[ '$RULE_WHEN' = 'manual' ]" \
@@ -1083,9 +1074,9 @@ assert_test "restore_runtime rule allow_failure is false" \
 BEFORE_SCRIPT=$(echo "$PARSER_RESULT" | jq -r '.plan.jobs[] | select(.name == "restore_runtime") | .beforeScript[0] // empty')
 SCRIPT_CONTENT=$(echo "$PARSER_RESULT" | jq -r '.plan.jobs[] | select(.name == "restore_runtime") | .script[0] // empty')
 
-assert_test "before_script verifies BACKUP_RUN_ID is non-empty" \
-  "echo '$BEFORE_SCRIPT' | grep -q 'BACKUP_RUN_ID'" \
-  "before_script did not check BACKUP_RUN_ID"
+assert_test "before_script verifies BACKUP_ARTIFACT_ID is non-empty" \
+  "echo '$BEFORE_SCRIPT' | grep -q 'BACKUP_ARTIFACT_ID'" \
+  "before_script did not check BACKUP_ARTIFACT_ID"
 
 assert_test "script creates input directory" \
   "echo '$SCRIPT_CONTENT' | grep -q 'mkdir -p input'" \

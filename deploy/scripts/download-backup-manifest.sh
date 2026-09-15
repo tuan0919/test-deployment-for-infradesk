@@ -19,8 +19,20 @@ mkdir -p "$DEST_DIR"
 rm -f "$DEST"
 
 : "${ARTIFACT_API_BASE:?Error: ARTIFACT_API_BASE environment variable is required}"
-: "${BACKUP_PIPELINE_ID:?Error: BACKUP_PIPELINE_ID environment variable is required}"
-: "${BACKUP_RUN_ID:?Error: BACKUP_RUN_ID environment variable is required}"
+: "${BACKUP_ARTIFACT_ID:?Error: BACKUP_ARTIFACT_ID environment variable is required}"
+: "${BACKUP_MANIFEST_SHA256:?Error: BACKUP_MANIFEST_SHA256 environment variable is required}"
+
+UUID_REGEX='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+if [[ ! "$BACKUP_ARTIFACT_ID" =~ $UUID_REGEX ]]; then
+  echo "Error: BACKUP_ARTIFACT_ID must be a valid UUID: $BACKUP_ARTIFACT_ID" >&2
+  exit 1
+fi
+
+SHA256_REGEX='^[0-9a-fA-F]{64}$'
+if [[ ! "$BACKUP_MANIFEST_SHA256" =~ $SHA256_REGEX ]]; then
+  echo "Error: BACKUP_MANIFEST_SHA256 must be a 64-character hexadecimal SHA256 string: $BACKUP_MANIFEST_SHA256" >&2
+  exit 1
+fi
 
 CURL_CONNECT_TIMEOUT="${CURL_CONNECT_TIMEOUT:-10}"
 CURL_MAX_TIME="${CURL_MAX_TIME:-60}"
@@ -31,14 +43,12 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-DOWNLOAD_URL="${ARTIFACT_API_BASE%/}/api/pipelines/${BACKUP_PIPELINE_ID}/runs/${BACKUP_RUN_ID}/artifacts/download"
+DOWNLOAD_URL="${ARTIFACT_API_BASE%/}/api/artifacts/${BACKUP_ARTIFACT_ID}/download"
 
 echo "Downloading backup manifest from ${DOWNLOAD_URL}..."
 
-if ! curl --fail --silent --show-error --get \
+if ! curl --fail --silent --show-error \
   --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" \
-  --data-urlencode 'job=backup_runtime' \
-  --data-urlencode 'path=output/backup-reference.json' \
   "$DOWNLOAD_URL" \
   --output "$TEMP_FILE"; then
   echo "Error: Failed to download artifact from ${DOWNLOAD_URL}" >&2

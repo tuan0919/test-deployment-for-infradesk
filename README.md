@@ -47,8 +47,7 @@ Copy env: `cp deploy/.env.example deploy/.env` và chỉnh `DEPLOY_DIR`, `POSTGR
 | Biến                     | Loại    | Ý nghĩa                                                                 |
 | ------------------------ | ------- | ----------------------------------------------------------------------- |
 | `ARTIFACT_API_BASE`      | string  | Base URL của InfraDesk API runner truy cập được (vd: `http://infradesk:3000`) |
-| `BACKUP_PIPELINE_ID`     | UUID    | ID của pipeline backup                                                 |
-| `BACKUP_RUN_ID`          | UUID    | ID của run backup cụ thể cần restore (không dùng `latest`)              |
+| `BACKUP_ARTIFACT_ID`     | UUID    | ID (UUID) của manifest artifact cần restore                             |
 | `BACKUP_MANIFEST_SHA256` | hex64   | Checksum SHA256 mong đợi của file `output/backup-reference.json`        |
 | `IMAGE_TAG`              | string  | Tag image release (`v2.0.0`)                                            |
 | `DEPLOY_DIR`             | path    | Thư mục host chứa postgres + uploads                                    |
@@ -67,20 +66,19 @@ Copy env: `cp deploy/.env.example deploy/.env` và chỉnh `DEPLOY_DIR`, `POSTGR
    - Tạo file manifest `output/backup-reference.json` chứa `schemaVersion: 1`, `snapshotId`, `commitSha`, `database`, `createdAt` (tuyệt đối không chứa mật khẩu/secret).
    - Publish manifest artifact lên InfraDesk với `expire_in: never`.
 
-#### 2. Lấy thông tin Run UUID và SHA256
+#### 2. Lấy thông tin Artifact UUID và SHA256
 1. Vào trang chi tiết Run vừa chạy thành công của pipeline backup.
-2. Lấy **`BACKUP_RUN_ID`**: sao chép UUID từ URL hoặc tiêu đề Run.
-3. Lấy **`BACKUP_MANIFEST_SHA256`**: vào tab Artifacts (hoặc gọi `GET /api/pipelines/:pipelineId/runs/:runId/artifacts`), tìm `output/backup-reference.json` và sao chép chuỗi SHA256 (64 ký tự hex).
+2. Lấy **`BACKUP_ARTIFACT_ID`**: vào tab Artifacts (hoặc gọi `GET /api/pipelines/:pipelineId/runs/:runId/artifacts`), tìm artifact `output/backup-reference.json` và sao chép UUID của artifact.
+3. Lấy **`BACKUP_MANIFEST_SHA256`**: sao chép chuỗi SHA256 (64 ký tự hex) tương ứng của artifact `output/backup-reference.json`.
 
 #### 3. Thực hiện Restore (`restore.yaml`)
 1. Mở pipeline `restore.yaml`, chọn cấu hình biến:
    - `ARTIFACT_API_BASE`: URL của InfraDesk API.
-   - `BACKUP_PIPELINE_ID`: UUID của pipeline backup.
-   - `BACKUP_RUN_ID`: UUID của run backup đã chọn ở bước 2.
+   - `BACKUP_ARTIFACT_ID`: UUID của manifest artifact đã lấy ở bước 2.
    - `BACKUP_MANIFEST_SHA256`: Checksum SHA256 đã lấy ở bước 2.
 2. Tạo run mới. Do job `restore_runtime` có quy tắc `when: manual` và `allow_failure: false`, run sẽ ở trạng thái chờ duyệt (`Waiting for approval`).
 3. Bấm **Play** để thực thi:
-   - Runner dùng `download-backup-manifest.sh` tải manifest qua HTTP API từ run được chỉ định.
+   - Runner dùng `download-backup-manifest.sh` tải manifest qua HTTP API (`/api/artifacts/:artifactId/download`).
    - Tự động kiểm tra kích thước (<= 256 KiB), so khớp SHA256 với `BACKUP_MANIFEST_SHA256`, và validate JSON schema.
    - Nếu artifact hết hạn, bị xóa hoặc sai checksum: script dừng ngay lập tức (exit 1), không bao giờ chạm vào dữ liệu host.
    - Khi manifest hợp lệ, `restore.sh` kết nối Kopia, restore đúng `snapshotId` vào staging, dừng web container, import database, giải nén uploads, và khởi động lại dịch vụ qua `docker compose up -d`.
@@ -92,7 +90,7 @@ Copy env: `cp deploy/.env.example deploy/.env` và chỉnh `DEPLOY_DIR`, `POSTGR
   - Dữ liệu snapshot dung lượng lớn nằm trong Kopia repository và chịu sự quản lý retention của Kopia (maintenance/snapshot prune).
   - Hai retention này hoàn toàn độc lập: việc manifest artifact còn tồn tại không đảm bảo chắc chắn snapshot Kopia chưa bị prune. Script restore luôn xác thực sự tồn tại của snapshot trong Kopia trước khi thực hiện thao tác xóa dữ liệu cũ.
 - **Hành vi Rerun:**
-  - Nút Rerun trên InfraDesk hiện sử dụng bộ parameters cấu hình hiện tại của pipeline. Khi rerun một lần restore trước đó, operator phải kiểm tra và xác nhận lại `BACKUP_RUN_ID` và `BACKUP_MANIFEST_SHA256` để đảm bảo đang restore đúng snapshot mong muốn.
+  - Nút Rerun trên InfraDesk hiện sử dụng bộ parameters cấu hình hiện tại của pipeline. Khi rerun một lần restore trước đó, operator phải kiểm tra và xác nhận lại `BACKUP_ARTIFACT_ID` và `BACKUP_MANIFEST_SHA256` để đảm bảo đang restore đúng snapshot mong muốn.
   - Khi rerun một run cũ trong lịch sử Git, hệ thống sẽ checkout commit tại thời điểm của run đó. Các commit cũ sẽ không có các script mới (`download-backup-manifest.sh`, `kopia-backup.sh`), do đó chỉ các run từ commit có script mới mới hỗ trợ flow tải manifest này.
 
 ### Scripts
