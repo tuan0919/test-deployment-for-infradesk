@@ -21,13 +21,6 @@ rm -f "$DEST"
 : "${ARTIFACT_API_BASE:?Error: ARTIFACT_API_BASE environment variable is required}"
 : "${BACKUP_PIPELINE_ID:?Error: BACKUP_PIPELINE_ID environment variable is required}"
 : "${BACKUP_RUN_ID:?Error: BACKUP_RUN_ID environment variable is required}"
-: "${BACKUP_MANIFEST_SHA256:?Error: BACKUP_MANIFEST_SHA256 environment variable is required}"
-
-
-if [[ ! "$BACKUP_MANIFEST_SHA256" =~ $SHA256_REGEX ]]; then
-  echo "Error: Invalid BACKUP_MANIFEST_SHA256 format (expected 64 hex characters): $BACKUP_MANIFEST_SHA256" >&2
-  exit 1
-fi
 
 CURL_CONNECT_TIMEOUT="${CURL_CONNECT_TIMEOUT:-10}"
 CURL_MAX_TIME="${CURL_MAX_TIME:-60}"
