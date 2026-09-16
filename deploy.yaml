@@ -67,7 +67,7 @@ unit_test:
 
 performance_test:
   stage: test
-  tags: [dell-server]
+  tags: [gmo021-client]
   rules:
     - if: "$CI_COMMIT_TAG"
       when: on_success
@@ -96,7 +96,7 @@ performance_test:
 
 integration_test:
   stage: test
-  tags: [dell-server]
+  tags: [gmo021-client]
   rules:
     - if: "$CI_COMMIT_TAG"
       when: on_success
@@ -123,7 +123,7 @@ integration_test:
 
 deploy_local:
   stage: deploy
-  tags: [dell-server]
+  tags: [gmo021-client]
   rules:
     - if: "$CI_COMMIT_TAG"
       when: manual
